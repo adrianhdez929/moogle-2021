@@ -35,7 +35,8 @@ namespace MoogleEngine {
 
             for (int i = 0; i < splittedText.Length; i++) {
                 if (splittedText[i].Contains('!')) {
-                    skipped.Add(splittedText[i].ToLower().Replace("!", ""));
+                    splittedText[i] = splittedText[i].ToLower().Replace("!", "");
+                    skipped.Add(splittedText[i]);
                 } 
                 else if (splittedText[i].Contains('*')) {
                     int weightMultiplier = splittedText[i].ToCharArray().Count(c => c == '*');
@@ -47,7 +48,8 @@ namespace MoogleEngine {
                     }
                 }
                 else if (splittedText[i].Contains('^')) {
-                    must.Add(splittedText[i].ToLower().Replace("!", ""));
+                    splittedText[i] = splittedText[i].ToLower().Replace("^", "");
+                    must.Add(splittedText[i]);
                 }
             }
 

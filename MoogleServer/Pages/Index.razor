@@ -14,16 +14,20 @@
     </div>
 }
 
-<ul class="results">
-@foreach (var item in result.Items()) {
-    <li>
-        <div class="item">
-            <p class="title">@item.Title</p>
-            <p>... @item.Snippet ...</p>
-        </div>
-    </li>
+@if (result.Count != 0) {
+    <ul class="results">
+    @foreach (var item in result.Items()) {
+        <li>
+            <div class="item">
+                <p class="title">@item.Title</p>
+                <p>... @item.Snippet ...</p>
+            </div>
+        </li>
+    }
+    </ul>
+} else {
+    <h3>No se encontraron resultados</h3>
 }
-</ul>
 
 @code {
     private string query = "";

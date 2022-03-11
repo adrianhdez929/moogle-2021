@@ -37,8 +37,6 @@ namespace MoogleEngine {
 
             Matrix tfidf = TFIDF(query, docs, docInfo);
 
-            System.Console.WriteLine(tfidf);
-            
             double[] results = GetResults(tfidf);
 
             List<SearchItem> items = new List<SearchItem>();
@@ -61,6 +59,9 @@ namespace MoogleEngine {
 
         public static string GetSuggestion(Query query, List<SearchItem> result, Document[] docCollection, Matrix tfidfMatrix) {
             string suggestion = "";
+
+            if (result.Count == 0)
+                return suggestion;
 
             for (int i = 0; i < docCollection.Length; i++) {
                 if (docCollection[i].Path == result.First().Title.Split('.').First()) {
@@ -112,8 +113,6 @@ namespace MoogleEngine {
                             documentCount++;
                     }
 
-                    //System.Console.WriteLine(words[i] + " " + documentCount + " " + docs[j].CleanContent.Length);
-                    
                     tf[j] = (double)documentCount / (double)docs[j].CleanContent.Length;
 
                     if (documentCount > 0) {
@@ -129,8 +128,6 @@ namespace MoogleEngine {
 
                 double idf = System.Math.Log10((double)docs.Length / (double)(docOcurrencies[i]));
 
-                //System.Console.WriteLine(idf);
-
                 Vector tfidfVector = idf * tfVector;
 
                 try {
@@ -143,17 +140,25 @@ namespace MoogleEngine {
             }
 
             for (int i = 0; i < docs.Length; i++) {
+                List<string> tempMustWords = query.MustWords.ToList<string>();
+
                 foreach (string word in docs[i].CleanContent) {
                     if (query.SkippedWords.Contains(word.ToLower())) {
                         for (int j = 0; j < words.Length; j++) {
                             tfidfMatrix[j, i] = 0;
                         }
                         break;
+                    } 
+                    else if (tempMustWords.Contains(word.ToLower()))
+                        tempMustWords.RemoveAll(item => item == word.ToLower());
+                }
+                
+                if (tempMustWords.Count > 0) {
+                    for (int j = 0; j < words.Length; j++) {
+                        tfidfMatrix[j, i] = 0;
                     }
                 }
             }
-
-            // implementar el must
 
             return new Matrix(tfidfMatrix);
         }
