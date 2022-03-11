@@ -27,27 +27,25 @@ namespace MoogleEngine {
         }
     }
     public static class Moogle {
-        public static SearchResult Query(string query) {
-            // Modifique este método para responder a la búsqueda
+        public static SearchResult Query(string pQuery) {
             Dictionary<int, DocumentInfo> docInfo = new Dictionary<int, DocumentInfo>();
             
             Document[] docs = LoadFilesContent(docInfo);
+            Query query = new Query(pQuery);
 
             string[] fileNames = Directory.GetFiles("../Content");
-            string[] queryWords = query.Split(' ');
 
-            Matrix tfidf = TFIDF(query, docs, docInfo);
+            Matrix tfidf = TFIDF(query.Text, docs, docInfo);
             
             double[] results = GetResults(tfidf);
 
             List<SearchItem> items = new List<SearchItem>();
-            string suggestion = "";
 
             // Ahora mismo no funciona
             for (int i = 0; i < results.Length; i++) {
                 if (results[i] != 0) {
                     string name = fileNames[i].Split('/').Last<string>();
-                    items.Add(new SearchItem(name, GetSnippet(query, docs[i].Content), (float)results[i]));
+                    items.Add(new SearchItem(name, GetSnippet(query.Text, docs[i].Content), (float)results[i]));
                 }
             }
 
@@ -56,7 +54,9 @@ namespace MoogleEngine {
             Array.Sort(results);
             Array.Reverse(results);
 
-            float[] scores = CalculateScore(items, results, query, docInfo);
+            string suggestion = GetSuggestion(query, items, docs, tfidf);
+
+            float[] scores = CalculateScore(items, results, query.Text, docInfo);
 
             // System.Console.WriteLine(tfidf.ToString());
 
@@ -74,6 +74,22 @@ namespace MoogleEngine {
             // };
 
             return new SearchResult(items.ToArray(), suggestion);
+        }
+
+        public static string GetSuggestion(Query query, List<SearchItem> result, Document[] docCollection, Matrix tfidfMatrix) {
+            string suggestion = "";
+
+            for (int i = 0; i < docCollection.Length; i++) {
+                if (docCollection[i].Path == result.First().Title.Split('.').First()) {
+                    for (int j = 0; j < tfidfMatrix.Rows; j++) {
+                        if (tfidfMatrix[j, i] != (double)0) {
+                            suggestion += query.Words[j];
+                        }
+                    }
+                }
+            }
+
+            return suggestion;
         }
         
         public static Document[] LoadFilesContent(Dictionary<int, DocumentInfo> docInfo) {
@@ -118,7 +134,6 @@ namespace MoogleEngine {
                 double[] tf = new double[docs.Length];
                 
                 for (int j = 0; j < docs.Length; j++) {
-                    // Eliminando los restantes signos de puntuacion                    
                     int documentCount = 0;
 
                     foreach(string w in docs[j].CleanContent)

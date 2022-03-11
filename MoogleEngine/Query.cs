@@ -7,6 +7,7 @@ namespace MoogleEngine {
         Vector tf;
         Vector tfidf;
         public Query(string query) {
+            this.Text = query;
             this.Words = query.Split(' ');
             double[] tfValues = new double[this.Words.Length];
 
@@ -20,6 +21,10 @@ namespace MoogleEngine {
             this.tfidf = new Vector(new double[this.Words.Length]);
         }
 
+        public string Text {
+            get;
+        }
+
         public string[] Words {
             get;
         }
@@ -28,7 +33,7 @@ namespace MoogleEngine {
             get { return this.tf; }
         }
 
-           public Vector Weight {
+        public Vector Weight {
             get { return this.tfidf; }
 
             set { this.tfidf = value; }
