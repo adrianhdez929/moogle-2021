@@ -35,17 +35,17 @@ namespace MoogleEngine {
 
             string[] fileNames = Directory.GetFiles("../Content");
 
-            Matrix tfidf = TFIDF(query.Text, docs, docInfo);
+            Matrix tfidf = TFIDF(query, docs, docInfo);
+
+            System.Console.WriteLine(tfidf);
             
             double[] results = GetResults(tfidf);
 
             List<SearchItem> items = new List<SearchItem>();
 
-            // Ahora mismo no funciona
             for (int i = 0; i < results.Length; i++) {
                 if (results[i] != 0) {
-                    string name = fileNames[i].Split('/').Last<string>();
-                    items.Add(new SearchItem(name, GetSnippet(query.Text, docs[i].Content), (float)results[i]));
+                    items.Add(new SearchItem(docs[i].Path, GetSnippet(query, docs[i].Content), (float)results[i]));
                 }
             }
 
@@ -56,23 +56,6 @@ namespace MoogleEngine {
 
             string suggestion = GetSuggestion(query, items, docs, tfidf);
 
-            float[] scores = CalculateScore(items, results, query.Text, docInfo);
-
-            // System.Console.WriteLine(tfidf.ToString());
-
-            // for(int i = 0; i < queryWords.Length; i++) {
-            //     for (int j = 0; j < content.Length; j++) {
-            //         if (tfidf[i, j] != 0)
-            //             System.Console.WriteLine("{0} - {1}: {2}", queryWords[i], fileNames[j], tfidf[i, j]);
-            //     }
-            // }
-
-            // SearchItem[] items = new SearchItem[3] {
-            //     new SearchItem("Hello World", "Lorem ipsum dolor sit amet", 0.9f),
-            //     new SearchItem("Hello World", "Lorem ipsum dolor sit amet", 0.5f),
-            //     new SearchItem("Hello World", "Lorem ipsum dolor sit amet", 0.1f),
-            // };
-
             return new SearchResult(items.ToArray(), suggestion);
         }
 
@@ -81,9 +64,9 @@ namespace MoogleEngine {
 
             for (int i = 0; i < docCollection.Length; i++) {
                 if (docCollection[i].Path == result.First().Title.Split('.').First()) {
-                    for (int j = 0; j < tfidfMatrix.Rows; j++) {
+                    for (int j = 0; j < query.Words.Length; j++) {
                         if (tfidfMatrix[j, i] != (double)0) {
-                            suggestion += query.Words[j];
+                            suggestion += query.Words[j] + " ";
                         }
                     }
                 }
@@ -94,40 +77,28 @@ namespace MoogleEngine {
         
         public static Document[] LoadFilesContent(Dictionary<int, DocumentInfo> docInfo) {
             string[] fileNames = Directory.GetFiles("../Content");
-            Document[] documents = new Document[fileNames.Length];
+            Document[] documents = new Document[fileNames.Length - 1];
+            int currentIndex = 0;
 
-            for (int i = 0; i < fileNames.Length; i++)
-            {
+            for (int i = 0; i < fileNames.Length; i++) {
+                if (fileNames[i] == "../Content/.gitignore")
+                    continue;
+
                 StreamReader reader = new StreamReader(fileNames[i]);
-                string fileContent = reader.ReadToEnd();                
+                string fileContent = reader.ReadToEnd();
 
-                documents[i] = new Document(fileContent, fileNames[i]);
-                docInfo[i] = new DocumentInfo();
+                documents[currentIndex] = new Document(fileContent, fileNames[i]);
+                docInfo[currentIndex] = new DocumentInfo();
+
+                currentIndex++;
             }
 
             return documents;
         }
-
-        public static float[] CalculateScore(
-            List<SearchItem> items,
-            double[] results, 
-            string query, 
-            Dictionary<int, DocumentInfo> docInfo
-        ) {
-            float BASE_SCORE = 1.0f;
-            float[] scores = new float[results.Length];
-            int querySize = query.Split(' ').Length;
-
-            for (int i = 0; i < items.Count; i++) {
-                
-            }
-
-            return scores;
-        }
-        public static Matrix TFIDF(string query, Document[] docs, Dictionary<int, DocumentInfo> docInfo) {
-            string[] words = query.Split(' ');
+        public static Matrix TFIDF(Query query, Document[] docs, Dictionary<int, DocumentInfo> docInfo) {
+            string[] words = query.Words;
             int[] docOcurrencies = new int[words.Length];
-            
+
             double[,] tfidfMatrix = new double[words.Length, docs.Length];
 
             for (int i = 0; i < words.Length; i++) {
@@ -136,11 +107,14 @@ namespace MoogleEngine {
                 for (int j = 0; j < docs.Length; j++) {
                     int documentCount = 0;
 
-                    foreach(string w in docs[j].CleanContent)
+                    foreach(string w in docs[j].CleanContent) {
                         if (w.ToLower() == words[i].ToLower())
                             documentCount++;
+                    }
+
+                    //System.Console.WriteLine(words[i] + " " + documentCount + " " + docs[j].CleanContent.Length);
                     
-                    tf[j] = (double)documentCount / (double)docs[j].Content.Length;
+                    tf[j] = (double)documentCount / (double)docs[j].CleanContent.Length;
 
                     if (documentCount > 0) {
                         docOcurrencies[i]++;
@@ -149,14 +123,37 @@ namespace MoogleEngine {
                 }
                 
                 Vector tfVector = new Vector(tf);
-                double idf = System.Math.Log10((double)docs.Length / (double)(1 + docOcurrencies[i]));
+
+                if (docOcurrencies[i] == 0)
+                    docOcurrencies[i]++;
+
+                double idf = System.Math.Log10((double)docs.Length / (double)(docOcurrencies[i]));
+
+                //System.Console.WriteLine(idf);
 
                 Vector tfidfVector = idf * tfVector;
+
+                try {
+                    tfidfVector = (double)query.WeightedWords[words[i]] * tfidfVector;
+                } catch (KeyNotFoundException) {}
 
                 for (int j = 0; j < tfidfVector.Size; j++) {
                     tfidfMatrix[i, j] = tfidfVector[j];
                 }
             }
+
+            for (int i = 0; i < docs.Length; i++) {
+                foreach (string word in docs[i].CleanContent) {
+                    if (query.SkippedWords.Contains(word.ToLower())) {
+                        for (int j = 0; j < words.Length; j++) {
+                            tfidfMatrix[j, i] = 0;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // implementar el must
 
             return new Matrix(tfidfMatrix);
         }
@@ -173,9 +170,9 @@ namespace MoogleEngine {
             return tfidfSum;
         }
 
-        public static string GetSnippet(string query, string content) {
+        public static string GetSnippet(Query query, string content) {
             string snippet = "";
-            string[] queryWords = query.Split(' ');
+            string[] queryWords = query.Words;
 
             for (int i = 0; i < queryWords.Length; i++) {
                 foreach(string word in content.Split(" @$/#.-:&*+=[]?!(){},''\">_<;%\\".ToCharArray())) {
