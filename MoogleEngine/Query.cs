@@ -27,7 +27,6 @@ namespace MoogleEngine {
             this.tf = new Vector(tfValues);
             this.tfidf = new Vector(new double[this.Words.Length]);
         }
-
         private void CheckOperators() {
             string[] splittedText = this.Text.Split(' ');
             List<string> skipped = new List<string>();

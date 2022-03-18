@@ -53,29 +53,88 @@ namespace MoogleEngine {
             Array.Reverse(results);
 
             string suggestion = GetSuggestion(query, items, docs, tfidf);
-
             return new SearchResult(items.ToArray(), suggestion);
+        }
+
+        private static int LevenshteinDistance(string a, string b) {
+            int n = a.Length;
+            int m = b.Length;
+            int[,] d = new int[n + 1, m + 1];
+
+            if (n == 0)
+                return m;
+            if (m == 0)
+                return n;
+
+            for (int i = 0; i <= n; i++)
+                d[i, 0] = i;
+            for (int j = 0; j <= m; j++)
+                d[0, j] = j;
+
+            for (int j = 1; j <= m; j++)
+                for (int i = 1; i <= n; i++)
+                    if (a[i - 1] == b[j - 1])
+                        d[i, j] = d[i - 1, j - 1];
+                    else
+                        d[i, j] = System.Math.Min(System.Math.Min(
+                            d[i - 1, j] + 1,   
+                            d[i, j - 1] + 1),  
+                            d[i - 1, j - 1] + 1
+                            );
+            return d[n, m];
         }
 
         public static string GetSuggestion(Query query, List<SearchItem> result, Document[] docCollection, Matrix tfidfMatrix) {
             string suggestion = "";
 
-            if (result.Count == 0)
-                return suggestion;
+            Document[] tempDocs = new Document[docCollection.Length];
+            Array.Copy(docCollection, tempDocs, docCollection.Length);
+
+            if (result.Count != 0) {
+                for (int i = 0; i < docCollection.Length; i++) {
+                    if (docCollection[i].Path == result.First().Title.Split('.').First()) {
+                        for (int j = 0; j < query.Words.Length; j++) {
+                            int bestDist = 3;
+                            string match = "";
+
+                            foreach(string word in docCollection[i].CleanContent) {
+                                int dist = LevenshteinDistance(query.Words[j], word);
+
+                                if (dist < bestDist) {
+                                    bestDist = dist;
+                                    match = word;
+                                }
+                            }
+
+                            suggestion += match + " ";
+                        }
+                    }
+                }
+            }
 
             for (int i = 0; i < docCollection.Length; i++) {
-                if (docCollection[i].Path == result.First().Title.Split('.').First()) {
+                if (suggestion == "") {
                     for (int j = 0; j < query.Words.Length; j++) {
-                        if (tfidfMatrix[j, i] != (double)0) {
-                            suggestion += query.Words[j] + " ";
+                        int bestDist = 3;
+                        string match = "";
+
+                        foreach(string word in docCollection[i].CleanContent) {
+                            int dist = LevenshteinDistance(query.Words[j], word);
+
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                match = word;
+                            }
                         }
+
+                        suggestion += match + " ";
                     }
                 }
             }
 
             return suggestion;
         }
-        
+
         public static Document[] LoadFilesContent(Dictionary<int, DocumentInfo> docInfo) {
             string[] fileNames = Directory.GetFiles("../Content");
             Document[] documents = new Document[fileNames.Length - 1];
@@ -108,7 +167,14 @@ namespace MoogleEngine {
                 for (int j = 0; j < docs.Length; j++) {
                     int documentCount = 0;
 
-                    foreach(string w in docs[j].CleanContent) {
+                    // foreach(string w in docs[j].CleanContent) {
+                    //     int dist = LevenshteinDistance(w.ToLower(), words[i].ToLower());
+
+                    //     if (dist <= 1)
+                    //     
+                    // }
+
+                    foreach (string w in docs[j].CleanContent) {
                         if (w.ToLower() == words[i].ToLower())
                             documentCount++;
                     }
@@ -180,12 +246,18 @@ namespace MoogleEngine {
             string[] queryWords = query.Words;
 
             for (int i = 0; i < queryWords.Length; i++) {
+                int bestDist = 3;
+                string match = "";
+
                 foreach(string word in content.Split(" @$/#.-:&*+=[]?!(){},''\">_<;%\\".ToCharArray())) {
-                    if (word.ToLower().Contains(queryWords[i].ToLower())) {
-                        snippet += word + " ";
-                        break;
+                    int dist = LevenshteinDistance(word.ToLower(), queryWords[i]);
+
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        match = word;
                     }
                 }
+                snippet += match + " ";
             }
 
             return snippet;
