@@ -111,13 +111,12 @@ namespace MoogleEngine {
                     }
                 }
             }
-
-            for (int i = 0; i < docCollection.Length; i++) {
-                if (suggestion == "") {
-                    for (int j = 0; j < query.Words.Length; j++) {
-                        int bestDist = 3;
-                        string match = "";
-
+            else {
+                for (int j = 0; j < query.Words.Length; j++) {
+                    int bestDist = 3;
+                    string match = "";
+                    
+                    for (int i = 0; i < docCollection.Length; i++) {
                         foreach(string word in docCollection[i].CleanContent) {
                             int dist = LevenshteinDistance(query.Words[j], word);
 
@@ -127,8 +126,8 @@ namespace MoogleEngine {
                             }
                         }
 
-                        suggestion += match + " ";
                     }
+                    suggestion += match + " ";
                 }
             }
 
